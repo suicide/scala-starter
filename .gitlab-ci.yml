@@ -1,0 +1,129 @@
+before_script:
+  - export javaHttpProxyHost=`echo $http_proxy | sed -n "s|^http://\(.*\):\(.*\)/$|\1|p"`
+  - export javaHttpProxyPort=`echo $http_proxy | sed -n "s|^http://\(.*\):\(.*\)/$|\2|p"`
+  - echo "user=$NEXUS_USER" >> $CI_PROJECT_DIR/.ci-credentials
+  - echo "password=$NEXUS_PASSWORD" >> $CI_PROJECT_DIR/.ci-credentials
+  - export SBT_OPTS="-Dhttp.nonProxyHosts=nexus-host -Dsbt.repository.config=$CI_PROJECT_DIR/.ci-repositories -Dsbt.boot.credentials=$CI_PROJECT_DIR/.ci-credentials -Dsbt.boot.directory=$CI_PROJECT_DIR/.sbt/boot -Dsbt.coursier.home=$CI_PROJECT_DIR/.sbt/coursier -Dsbt.ivy.home=$CI_PROJECT_DIR/.sbt/ivy"
+  - export SBT_LAUNCH_DIR="-sbt-launch-dir $CI_PROJECT_DIR/.sbt/launch"
+
+stages:
+  - compile
+  - test
+  - package
+  - docker_image
+  - docker_publish
+
+compile:
+  tags:
+    - run_docker
+  stage: compile
+  image: openjdk:8-jdk
+  cache:
+    key: myapp
+    paths:
+      - .sbt/
+  artifacts:
+    paths:
+      - "target/"
+      - "*/target"
+      - "*/*/target"
+  script:
+    - ./sbt $SBT_LAUNCH_DIR undeclaredCompileDependenciesTest unusedCompileDependenciesTest compile
+
+test:
+  tags:
+    - run_docker
+  stage: test
+  dependencies:
+    - compile
+  image: openjdk:8-jdk
+  cache:
+    key: myapp
+    paths:
+      - .sbt/
+  artifacts:
+    paths:
+      - "target/"
+      - "*/target"
+      - "*/*/target"
+  script:
+    - ./sbt $SBT_LAUNCH_DIR test
+
+package:
+  tags:
+    - run_docker
+  stage: package
+  dependencies:
+    - test
+  image: openjdk:8-jdk
+  cache:
+    key: myapp
+    paths:
+      - .sbt/
+  artifacts:
+    paths:
+      - "target/"
+      - "*/target"
+      - "*/*/target"
+  script:
+    - ./sbt $SBT_LAUNCH_DIR docker:stage
+
+docker_image:
+  tags:
+    - run_docker
+  stage: docker_image
+  dependencies:
+    - package
+  image: docker:stable
+  services:
+    - docker:stable-dind
+  cache:
+    key: myapp
+    paths:
+      - .sbt/
+  artifacts:
+    paths:
+      - "target/"
+      - "*/target"
+      - "*/*/target"
+  script:
+    - ls -la $CI_PROJECT_DIR/app/target/
+    - ls -la $CI_PROJECT_DIR/app/target/docker/stage/
+    - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA $CI_PROJECT_DIR/app/target/docker/stage/
+
+
+docker_publish_master:
+  tags:
+    - run_docker
+  stage: docker_publish
+  only:
+    refs:
+      - master
+  dependencies:
+    - docker_image
+  image: docker:stable
+  services:
+    - docker:stable-dind
+  script:
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+    - docker tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA $CI_REGISTRY_IMAGE:latest
+    - docker push $CI_REGISTRY_IMAGE:latest
+    - docker tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA $CI_REGISTRY_IMAGE:master
+    - docker push $CI_REGISTRY_IMAGE:master
+
+docker_publish_other:
+  tags:
+    - run_docker
+  stage: docker_publish
+  except:
+    refs:
+      - master
+  dependencies:
+    - docker_image
+  image: docker:stable
+  services:
+    - docker:stable-dind
+  script:
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+    - docker tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME
