@@ -1,15 +1,29 @@
 import com.typesafe.sbt.packager.docker.DockerVersion
 
 val versions = new {
-//  val `kubernetes-client` = "7.0.0"
+  val cats = "2.2.0"
+  val `cats-effect` = "2.2.0"
 
-  val scala = "2.13.1"
+  val logback = "1.2.3"
+  val log4cats = "1.1.1"
+
+  val scalatest = "3.2.3"
+  val scalatic = "3.2.2"
+
+  val scala = "2.13.3"
 }
 
 val dependencies = {
   import versions._
   new {
-//    val `kubernetes-client` = "io.kubernetes" % "client-java" % versions.`kubernetes-client`
+    val `cats-core` = "org.typelevel" %% "cats-core" % cats
+    val `cats-effect` = "org.typelevel" %% "cats-effect" % versions.`cats-effect`
+
+    val `log4cats-slf4j` = "io.chrisdavenport" %% "log4cats-slf4j" % log4cats
+    val `logback-classic` = "ch.qos.logback" % "logback-classic" % logback
+
+    val scalatest = "org.scalatest" %% "scalatest" % versions.scalatest % "test"
+    val scalatic = "org.scalactic" %% "scalactic" % versions.scalatic
   }
 }
 
@@ -21,10 +35,11 @@ val commonSettings = Seq(
   dependencyOverrides ++= {
     import dependencies._
     Seq(
+      scalatest,
     )
   },
-  dockerVersion := Some(DockerVersion(19, 0, 5, Some("ce"))),
-  dockerBaseImage := "openjdk:8",
+  dockerVersion := Some(DockerVersion(19, 3, 13, Some("ce"))),
+  dockerBaseImage := "openjdk:11",
 )
 
 lazy val core = Project(
@@ -35,6 +50,7 @@ lazy val core = Project(
     libraryDependencies ++= {
       import dependencies._
       Seq(
+        `logback-classic`,
       )
     },
     unusedCompileDependenciesFilter -= moduleFilter("ch.qos.logback", "logback-classic"),
@@ -51,7 +67,6 @@ lazy val app = Project(
     libraryDependencies ++= {
       import dependencies._
       Seq(
- //       `kubernetes-client`,
       )
     },
     crossPaths := false,
@@ -62,6 +77,6 @@ lazy val app = Project(
   .enablePlugins(ReproducibleBuildsPlugin, JavaAppPackaging, UniversalDeployPlugin, DockerPlugin)
   .dependsOn(core)
 
-lazy val myapp = (project in file("."))
+lazy val root = (project in file("."))
   .settings(commonSettings: _*)
   .aggregate(core, app)

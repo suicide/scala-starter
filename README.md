@@ -1,4 +1,4 @@
-# myapp 
+# starter 
 
 ## SBT config
 

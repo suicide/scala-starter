@@ -129,3 +129,11 @@ fabric.properties
 
 .idea
 
+# metals
+.bloop/
+.metals/
+metals.sbt
+.bsp/
+
+# vim
+.vim/
