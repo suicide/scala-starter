@@ -1,8 +1,8 @@
 import com.typesafe.sbt.packager.docker.DockerVersion
 
 val versions = new {
-  val cats = "2.2.0"
-  val `cats-effect` = "2.2.0"
+  val cats = "2.3.0"
+  val `cats-effect` = "2.3.0"
 
   val logback = "1.2.3"
   val log4cats = "1.1.1"
@@ -10,7 +10,7 @@ val versions = new {
   val scalatest = "3.2.3"
   val scalatic = "3.2.2"
 
-  val scala = "2.13.3"
+  val scala = "2.13.4"
 }
 
 val dependencies = {
